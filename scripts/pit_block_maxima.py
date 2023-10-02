@@ -1,12 +1,11 @@
 """Fit GEV to distribution, assuming stationary block maxima."""
 
 import os
-# import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from statsmodels.distributions.empirical_distribution import ECDF as ecdf
 import tensorflow as tf
-from evtGAN import tf_utils, viz_utils
+from hazardGAN import utils, fig_utils
 
 
 plt.rcParams["font.family"] = "monospace"
@@ -36,18 +35,18 @@ if __name__ == '__main__':
         datadir = f"/Users/alison/Documents/DPhil/multivariate/{variable}"
 
         # load data
-        data, cyclone_flag = tf_utils.load_data(datadir, dim=dim)
+        data, cyclone_flag = utils.load_data(datadir, dim=dim)
         train = data[:ntrain, ...]
         test = data[ntrain:, ...]
 
         # test first
-        marginals, params = tf_utils.probability_integral_transform(test, evt_type='bm')
+        marginals, params = utils.probability_integral_transform(test, evt_type='bm')
         np.save(os.path.join(datadir, 'test', 'bm', 'marginals.npy'), marginals)
         np.save(os.path.join(datadir, 'test', 'bm', 'images.npy'), test)
         np.save(os.path.join(datadir, 'test', 'bm', 'params.npy'), params)
         
         # train set
-        marginals, params = tf_utils.probability_integral_transform(train, evt_type='bm')
+        marginals, params = utils.probability_integral_transform(train, evt_type='bm')
         np.save(os.path.join(datadir, 'train', 'bm', 'marginals.npy'), marginals)
         np.save(os.path.join(datadir, 'train', 'bm', 'images.npy'), train)
         np.save(os.path.join(datadir, 'train', 'bm', 'params.npy'), params)

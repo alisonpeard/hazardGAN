@@ -1,7 +1,7 @@
 program: train_dcgan.py
 name: Sept04-new-transforms
 method: bayes
-project: evtGAN
+project: hazardGAN
 metric:
   name: g_loss_raw
   goal: minimize
