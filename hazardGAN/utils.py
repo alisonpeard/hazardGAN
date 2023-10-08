@@ -28,11 +28,25 @@ def translate_indices_r(i, j, dims=(18, 22)):
     return x
 
 
-def tf_unpad(tensor, paddings=tf.constant([[0,0], [1,1], [1,1], [0,0]])):
+def unpad(tensor, paddings=tf.constant([[0,0], [1,1], [1,1], [0,0]])):
     """Mine: remove Tensor paddings"""
     tensor = tf.convert_to_tensor(tensor)  # incase its a np.array
     unpaddings = [slice(pad.numpy()[0], -pad.numpy()[1]) if sum(pad.numpy()>0)  else slice(None, None) for pad in paddings]
     return tensor[unpaddings]
+
+
+def sliding_windows(x, size, jump=1):
+    n, *_ = x.shape
+    window_indices = sliding_window_indices(size, n, jump)
+    return x[window_indices, ...]
+
+
+def sliding_window_indices(size, n, jump=1):
+    windows = []
+    i = 0
+    for i in range(0, n - size, jump):
+        windows.append(np.arange(i, i + size, 1))
+    return np.array(windows)
 
 
 def frechet_transform(uniform):
@@ -176,7 +190,8 @@ def ecdf(x):
 
 
 def decluster_array(x:np.array, thresh:float, r:int):
-    if r is None:
+    if (r is None) or (r==0):
+        warnings.warn(f'decluster_array only returns indices of exceedences for r={r}.')
         return np.where(x > thresh)[0]
     exceedences = x > thresh
     clusters = identify_clusters(exceedences, r)
@@ -203,20 +218,6 @@ def identify_clusters(x:np.array, r:int):
             false_counts += 1
     clusters = [cluster for cluster in clusters if len(cluster) > 0]
     return clusters
-
-    
-# def interpolate_quantiles(marginals, quantiles, n=10000):
-#     """Interpolate the quantiles for inverse transformations.
-    
-#     No longer using this."""
-#     assert quantiles.ndim == 2, "Requires 2 dimensions"
-#     interpolation_points = np.linspace(0, 1, n)
-#     J = np.shape(quantiles)[1]
-    
-#     interpolated_quantiles = np.empty((n, J))
-#     for j in range(J):
-#         interpolated_quantiles[:, j] = np.interp(interpolation_points, sorted(marginals[..., j]), sorted(quantiles[..., j]))
-#     return interpolated_quantiles
 
 
 def inv_probability_integral_transform(marginals, x=None, y=None, params=None, evt_type='pot', thresh=None):
@@ -325,7 +326,7 @@ def get_extremal_coeffs(marginals, sample_inds):
     n, h, w = tf.shape(data)[:3]
     data = tf.reshape(data, [n, h * w])
     data = tf.gather(data, sample_inds, axis=1)
-    frechet = tf_inv_frechet(data)
+    frechet = inv_frechet(data)
     ecs = {}
     for i in range(len(sample_inds)):
         for j in range(i):
@@ -333,12 +334,12 @@ def get_extremal_coeffs(marginals, sample_inds):
     return ecs
 
 
-def tf_exp(uniform):
+def exp(uniform):
     exp_distributed = -tf.math.log(1 - uniform)
     return exp_distributed
 
 
-def tf_inv_frechet(uniform):
+def inv_frechet(uniform):
     exp_distributed = -tf.math.log(uniform)
     return exp_distributed
 
@@ -371,7 +372,7 @@ def get_extremal_coeffs_nd(marginals, sample_inds):
     n, h, w, d = marginals.shape
     data = marginals.reshape(n, h * w, d)
     data = data[:, sample_inds, :]
-    frechet = tf_inv_frechet(data)
+    frechet = inv_frechet(data)
     ecs = {}
     for i in range(len(sample_inds)):
         ecs[sample_inds[i]] = raw_extremal_coeff_nd(frechet[:, i, :])
@@ -425,10 +426,10 @@ def interpolate_thresholds(thresholds, x, y):
 
 
 ########################################################################################################
-def load_data(datadir, imsize=(18, 22), conditions='all', dim=None):
+def load_data(datadir, imsize=(18, 22), block_size='daily', conditions='all', dim=None):
     """Load wind image data to correct size."""
     assert conditions in ['cyclone', 'all'], "Invalid conditions."
-    df = pd.read_csv(os.path.join(datadir, f"{dim}_dailymax.csv"), index_col=[0])
+    df = pd.read_csv(os.path.join(datadir, block_size, f"{dim}_{block_size}max.csv"), index_col=[0])
     if conditions == "cyclone":
         df = df[df['cyclone_flag']]
     cyclone_flag = df['cyclone_flag'].values
@@ -443,14 +444,16 @@ def load_data(datadir, imsize=(18, 22), conditions='all', dim=None):
 
 
 def load_training_data(datadir, train_size=200, datas=['wind_data', 'wave_data', 'precip_data'],
-                       evt_type='pot', paddings=tf.constant([[0,0], [1,1], [1,1], [0,0]])):
+                       evt_type='pot', block_size='daily',
+                       paddings=tf.constant([[0,0], [1,1], [1,1], [0,0]]),
+                       shuffle=True):
     marginals = []
     images = []
     params = []
     for data in datas:
-        marginals.append(np.load(os.path.join(datadir, data, 'train', evt_type, 'marginals.npy'))[..., 0])
-        params.append(np.load(os.path.join(datadir, data, 'train', evt_type, 'params.npy')))
-        images.append(np.load(os.path.join(datadir, data, 'train', evt_type, 'images.npy'))[..., 0])
+        marginals.append(np.load(os.path.join(datadir, data, block_size, 'train', evt_type, 'marginals.npy'))[..., 0])
+        params.append(np.load(os.path.join(datadir, data, block_size, 'train', evt_type, 'params.npy')))
+        images.append(np.load(os.path.join(datadir, data, block_size, 'train', evt_type, 'images.npy'))[..., 0])
 
     marginals = np.stack(marginals, axis=-1)
     params = np.stack(params, axis=-1)
@@ -458,8 +461,12 @@ def load_training_data(datadir, train_size=200, datas=['wind_data', 'wave_data',
     marginals = tf.pad(marginals, paddings)
 
     # train/valid split
-    np.random.seed(2)
-    train_inds = np.random.choice(np.arange(0, marginals.shape[0], 1), size=train_size, replace=False)
+    if shuffle:
+        np.random.seed(2)
+        train_inds = np.random.choice(np.arange(0, marginals.shape[0], 1), size=train_size, replace=False)
+    else:
+        train_inds = np.arange(0, train_size, 1)
+    
     marginals_train = np.take(marginals, train_inds, axis=0)
     marginals_test = np.delete(marginals, train_inds, axis=0)
     images = np.take(images, train_inds, axis=0)
@@ -467,7 +474,7 @@ def load_training_data(datadir, train_size=200, datas=['wind_data', 'wave_data',
     if evt_type == "pot":
         thresholds = []
         for data in datas:
-            thresholds.append(np.load(os.path.join(datadir, data, 'train', evt_type, 'thresholds.npy')))
+            thresholds.append(np.load(os.path.join(datadir, data, block_size, 'train', evt_type, 'thresholds.npy')))
         thresholds = np.stack(thresholds, axis=-1)
     else:
         thresholds = None

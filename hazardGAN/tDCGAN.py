@@ -9,6 +9,8 @@ from tensorflow.keras import layers
 from tensorflow.keras.callbacks import Callback
 from tensorflow.nn import sigmoid_cross_entropy_with_logits as cross_entropy
 
+# custom layers
+from .mylayers import *
 
 # for plotting
 import matplotlib.pyplot as plt
@@ -35,75 +37,73 @@ def process_adam_from_config(config):
 
 def compile_dcgan(config, loss_fn=cross_entropy, nchannels=2):
     adam_kwargs = process_adam_from_config(config)
-    d_optimizer = Adam(**adam_kwargs) # RMSprop(learning_rate=0) #
-    g_optimizer = Adam(**adam_kwargs) # RMSprop(learning_rate=0)
+    d_optimizer = Adam(**adam_kwargs)
+    g_optimizer = Adam(**adam_kwargs)
     dcgan = DCGAN(config, nchannels=nchannels)
     dcgan.compile(d_optimizer=d_optimizer, g_optimizer=g_optimizer, loss_fn=loss_fn)
     return dcgan
 
 
 # G(z)
-def define_generator(config, nchannels=2):
+def define_generator(config, nchannels=2, window_size=7):
     """
     >>> generator = define_generator()
     """
     z = tf.keras.Input(shape=(100))
 
-    # First fully connected layer, 1 x 1 x 25600 -> 5 x 5 x 1024
-    fc = layers.Dense(config['complexity_0'] * config['g_layers'][0])(z)
-    fc = layers.Reshape((5, 5, int(config['complexity_0'] * config['g_layers'][0] / 25)))(fc)
-    fc = layers.BatchNormalization(axis=-1)(fc)  # normalise along features layer (1024)
+    # First fully connected layer, 1 x 1 x (5 * 25600) -> 5 x 5 x 5 x 1024
+    fc = layers.Dense(config['complexity_0'] * 5 * config['g_layers'][0])(z)
+    fc = layers.Reshape((5, 5, 5, int(config['complexity_0'] * 5 * config['g_layers'][0] / 125)))(fc)
     lrelu0 = layers.LeakyReLU(config.lrelu)(fc)
-    drop0 = layers.Dropout(config.dropout)(lrelu0)
+    drop0 = layers.SpatialDropout3D(config.dropout)(lrelu0)
+    norm0 = BatchNormalization3D(drop0)  # normalise along features layer (1024)
 
-    # Deconvolution, 7 x 7 x 512
-    conv1 = layers.Conv2DTranspose(config['complexity_1'] * config['g_layers'][1], (3, 3), (1, 1), use_bias=False)(drop0)
-    conv1 = layers.BatchNormalization(axis=-1)(conv1)
+    # Deconvolution, 5 x 7 x 7 x 512
+    conv1 = layers.Conv3DTranspose(config['complexity_1'] * config['g_layers'][1], (1, 3, 3), (1, 1, 1), use_bias=False)(norm0)
     lrelu1 = layers.LeakyReLU(config.lrelu)(conv1)
-    drop1 = layers.Dropout(config.dropout)(lrelu1)
+    drop1 = layers.SpatialDropout3D(config.dropout)(lrelu1)
+    norm1 = BatchNormalization3D(drop1)
 
-    # Deconvolution, 9 x 10 x 256
-    conv2 = layers.Conv2DTranspose(config['complexity_2'] * config['g_layers'][2], (3, 4), (1, 1), use_bias=False)(drop1)
-    conv2 = layers.BatchNormalization(axis=-1)(conv2)
+    # Deconvolution, 5 x 9 x 10 x 256
+    conv2 = layers.Conv3DTranspose(config['complexity_2'] * config['g_layers'][2], (2, 3, 4), (1, 1, 1), use_bias=False)(norm1)
     lrelu2 = layers.LeakyReLU(config.lrelu)(conv2)
-    drop2 = layers.Dropout(config.dropout)(lrelu2)
+    drop2 = layers.SpatialDropout3D(config.dropout)(lrelu2)
+    norm2 = BatchNormalization3D(drop2)
 
-    # Output layer, 20 x 24 x nchannels
-    logits = layers.Conv2DTranspose(nchannels, (4, 6), (2, 2))(drop2)
-
-    o = tf.keras.activations.sigmoid(logits)  # not done in original code but doesn't make sense not to
-
+    # Output layer, 7 x 20 x 24 x nchannels
+    logits = layers.Conv3DTranspose(nchannels, (2, 4, 6), (1, 2, 2))(norm2)
+    o = tf.keras.activations.sigmoid(logits)
     return tf.keras.Model(z, o, name='generator')
 
 
 # D(x)
-def define_discriminator(config, nchannels=2):
+def define_discriminator(config, nchannels=1, window_size=7):
     """
     >>> discriminator = define_discriminator()
     """
-    x = tf.keras.Input(shape=(20, 24, nchannels))
+    x = tf.keras.Input(shape=(window_size, 20, 24, nchannels))
 
-    # 1st hidden layer 9x10x64
-    conv1 = layers.Conv2D(config['d_layers'][0], (4,5), (2,2), 'valid', kernel_initializer=tf.keras.initializers.GlorotUniform())(x)
-    lrelu1 = layers.LeakyReLU(config.lrelu)(conv1)
-    drop1 = layers.Dropout(config.dropout)(lrelu1)
+    # block 1 6x9x10x64
+    y = layers.Conv3D(config['d_layers'][0], (2,4,5), (1,2,2), 'valid', kernel_initializer=tf.keras.initializers.GlorotUniform())(x)
+    y = layers.LeakyReLU(config.lrelu)(y)
+    y = layers.SpatialDropout3D(config.dropout)(y)
 
-    # 2nd hidden layer 7x7x128
-    conv1 = layers.Conv2D(config['d_layers'][1], (3,4), (1,1), 'valid', use_bias=False)(drop1)
-    lrelu2 = layers.LeakyReLU(config.lrelu)(conv1)
-    drop2 = layers.Dropout(config.dropout)(lrelu2)
-    norm2 = layers.BatchNormalization(axis=-1)(drop2) # turns out often works better AFTER activation
+    # block 2 5x7x7x128
+    y = layers.Conv3D(config['d_layers'][1], (2,3,4), (1,1,1), 'valid', use_bias=False)(y)
+    y = layers.LeakyReLU(config.lrelu)(y)
+    y = layers.SpatialDropout3D(config.dropout)(y)
+    y = BatchNormalization3D(y)
 
-    # 3rd hidden layer 5x5x256
-    conv2 = layers.Conv2D(config['d_layers'][2], (3,3), (1,1), 'valid', use_bias=False)(norm2)
-    lrelu3 = layers.LeakyReLU(config.lrelu)(conv2)
-    drop3 = layers.Dropout(config.dropout)(lrelu3)
-    norm3 = layers.BatchNormalization(axis=-1)(drop3)
+    # block 3 5x5x5x256
+    y = tf.keras.layers.Conv3D(config['d_layers'][2], (1,3,3), (1,1,1), 'valid', use_bias=False)(y)
+    y = layers.LeakyReLU(config.lrelu)(y)
+    y = layers.SpatialDropout3D(config.dropout)(y)
+    y = BatchNormalization3D(y)
 
     # fully connected 1x1
-    flat = layers.Reshape((-1, 5 * 5 * config['d_layers'][2]))(norm3)
-    logits = layers.Dense(1)(flat)
-    logits = layers.Reshape((1,))(logits)
+    y = layers.Reshape((-1, 5 * 5 * 5 * config['d_layers'][2]))(y)
+    y = layers.Dense(1)(y)
+    logits = layers.Reshape((1,))(y)
     o = tf.keras.activations.sigmoid(logits)
 
     return tf.keras.Model(x, [o, logits], name='discriminator')
@@ -146,7 +146,7 @@ class DCGAN(keras.Model):
         labels_fake = tf.zeros((batch_size, 1))
 
         # train discriminator (twice)
-        for iteration in range(self.config.training_balance):
+        for _ in range(self.config.training_balance):
             with tf.GradientTape() as tape:
                 _, logits_real = self.discriminator(data)
                 _, logits_fake = self.discriminator(fake_data)
@@ -165,7 +165,7 @@ class DCGAN(keras.Model):
             generated_data = self.generator(random_latent_vectors)
             _, logits = self.discriminator(generated_data, training=False)
             g_loss_raw = tf.reduce_mean(self.loss_fn(misleading_labels, logits))
-            g_penalty = self.lambda_ * get_chi_score(data, generated_data, sample_size=tf.constant(25))
+            #g_penalty = self.lambda_ * get_chi_score(data, generated_data, sample_size=tf.constant(25))
             g_loss = g_loss_raw #+ g_penalty
         grads = tape.gradient(g_loss, self.generator.trainable_weights)
         self.g_optimizer.apply_gradients(zip(grads, self.generator.trainable_weights))
@@ -174,13 +174,13 @@ class DCGAN(keras.Model):
         self.d_loss_real_tracker.update_state(d_loss_real)
         self.d_loss_fake_tracker.update_state(d_loss_fake)
         self.g_loss_raw_tracker.update_state(g_loss_raw)
-        self.g_penalty_tracker.update_state(g_penalty)
+        #self.g_penalty_tracker.update_state(g_penalty)
 
         return {
             "d_loss_real": self.d_loss_real_tracker.result(),
             "d_loss_fake": self.d_loss_fake_tracker.result(),
-            "g_loss_raw": self.g_loss_raw_tracker.result(),
-            "g_penalty": self.g_penalty_tracker.result()
+            "g_loss_raw": self.g_loss_raw_tracker.result()#,
+            #"g_penalty": self.g_penalty_tracker.result()
         }
 
 

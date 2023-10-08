@@ -5,13 +5,19 @@ import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde
 import matplotlib as mpl
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
-from .tf_utils import *
+from .utils import *
 
 
 channel_labels = {0: r'wind speed [ms$^{-1}$]', 1: 'sig. wave height [m]', 2: 'total precipitation [m]'}
 variable_labels = {'wind_data': r'wind speed [ms$^{-1}$]', 'wave_data': 'sig. wave height [m]', 'precip_data': 'total precipitation [m]'}
 longitude = np.linspace(80.0, 95.0, 3)
 latitude = np.linspace(10.0, 25.0, 4)
+
+
+def add_colorbar(fig, im, ax, pad=0.05):
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('right', size='5%', pad=pad)
+    fig.colorbar(im, cax=cax, orientation='vertical')
 
 
 def discrete_colormap(data, nintervals, min=None, cmap="cividis", under='lightgrey'):

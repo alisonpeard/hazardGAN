@@ -8,7 +8,8 @@ getmode <- function(v) {
 }
 
 np <- import("numpy")
-var <- 'precip_data'
+var <- 'wind_data'
+block_size <- 'monthly'
 
 if(var=='precip_data'){
   min_quantile <- .9  # very skewed because of near-zero observations
@@ -16,7 +17,13 @@ if(var=='precip_data'){
   min_quantile <- .6
 }
 
-X <- np$load(paste0("/Users/alison/Documents/DPhil/multivariate/", var, "/train/images.npy"))
+if(block_size=='daily'){
+  nexcesses <- 50
+}else if(block_size=='weekly'){
+  nexcesses <- 30
+}
+
+X <- np$load(paste0("/Users/alison/Documents/DPhil/multivariate/", var, "/", block_size, "/train/images.npy"))
 M <- dim(X)[2]
 N <- dim(X)[3]
 
@@ -33,7 +40,7 @@ for(i in 1:M){
       attr(x, 'npy') <- npy
       
       # restrict search so that number of excesses always >= 10
-      max.allowed <- sort(x)[(length(x) - 50)]
+      max.allowed <- sort(x)[(length(x) - nexcesses)]
       max.quantile <- ecdf(x)(max.allowed)
       
       q_vec <- seq(min_quantile, max.quantile, by=0.01)
@@ -55,7 +62,7 @@ for(i in 1:M){
   }
 }
 
-np$save(paste0("/Users/alison/Documents/DPhil/multivariate/", var, "/train/pot/thresholds.npy"), u_mat)
+np$save(paste0("/Users/alison/Documents/DPhil/multivariate/", var, "/", block_size, "/train/pot/thresholds.npy"), u_mat)
 
 if(FALSE){
   summary(var_cv)

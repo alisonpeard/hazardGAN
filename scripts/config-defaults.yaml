@@ -1,6 +1,6 @@
 # training settings
 nepochs:
-  value: 1000
+  value: 1 # 1000
 train_size:
   value: 1000
 batch_size:
