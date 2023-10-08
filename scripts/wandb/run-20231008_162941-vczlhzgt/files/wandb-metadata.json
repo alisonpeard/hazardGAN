@@ -1,0 +1,34 @@
+{
+    "os": "macOS-12.5.1-arm64-arm-64bit",
+    "python": "3.10.12",
+    "heartbeatAt": "2023-10-08T15:29:42.447120",
+    "startedAt": "2023-10-08T15:29:41.941871",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "/Users/alison/Documents/DPhil/multivariate/hazardGAN/scripts/train_tdcgan.py",
+    "codePath": "scripts/train_tdcgan.py",
+    "git": {
+        "remote": "git@github.com:alisonpeard/hazardGAN.git",
+        "commit": "6a76aee278f77ab886cd236b14cee39079f96f39"
+    },
+    "email": null,
+    "root": "/Users/alison/Documents/DPhil/multivariate/hazardGAN",
+    "host": "Alisons-MacBook-Pro.local",
+    "username": "alison",
+    "executable": "/Users/alison/mambaforge/envs/tensorflow/bin/python",
+    "cpu_count": 8,
+    "cpu_count_logical": 8,
+    "disk": {
+        "total": 460.4317207336426,
+        "used": 373.3145217895508
+    },
+    "gpuapple": {
+        "type": "arm",
+        "vendor": "Apple"
+    },
+    "memory": {
+        "total": 16.0
+    }
+}

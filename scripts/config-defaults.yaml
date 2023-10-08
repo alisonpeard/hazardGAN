@@ -1,10 +1,10 @@
 # training settings
 nepochs:
-  value: 1 # 1000
+  value: 100 # 1000
 train_size:
   value: 1000
 batch_size:
-  value: 50
+  value: 100
 chi_frequency:
   desc: How often to calculate chi-score for train and test.
   value: 5

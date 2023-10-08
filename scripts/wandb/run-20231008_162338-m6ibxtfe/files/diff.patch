@@ -1,0 +1,49 @@
+diff --git a/.DS_Store b/.DS_Store
+index 8923605..20c0338 100644
+Binary files a/.DS_Store and b/.DS_Store differ
+diff --git a/scripts/.DS_Store b/scripts/.DS_Store
+index 5008ddf..73c4110 100644
+Binary files a/scripts/.DS_Store and b/scripts/.DS_Store differ
+diff --git a/scripts/config-defaults.yaml b/scripts/config-defaults.yaml
+index 2bf6bee..93b37d0 100644
+--- a/scripts/config-defaults.yaml
++++ b/scripts/config-defaults.yaml
+@@ -2,7 +2,7 @@
+ nepochs:
+   value: 1 # 1000
+ train_size:
+-  value: 1000
++  value: 100  #1000
+ batch_size:
+   value: 50
+ chi_frequency:
+diff --git a/scripts/train_tdcgan.py b/scripts/train_tdcgan.py
+index 2247d4e..b50cf76 100644
+--- a/scripts/train_tdcgan.py
++++ b/scripts/train_tdcgan.py
+@@ -28,6 +28,7 @@ plot_kwargs = {'bbox_inches': 'tight', 'dpi': 300}
+ cwd = os.getcwd() # scripts directory
+ wd = os.path.join(cwd, "..") # hazardGAN directory
+ datadir = os.path.join(wd, "..") # keep data folder in parent directory 
++datas = ['wind_data']
+ imdir = os.path.join(wd, 'figures', 'temp')
+ paddings = tf.constant([[0,0], [1,1], [1,1], [0,0]])
+ evt_type = "bm"
+@@ -48,7 +49,7 @@ def save_config(dir):
+ 
+ def main(config):
+     # load data
+-    train_marginals, test_marginals, params, images, thresholds = utils.load_training_data(datadir, config.train_size, evt_type=evt_type, paddings=paddings)
++    train_marginals, test_marginals, params, images, thresholds = utils.load_training_data(datadir, config.train_size, datas=datas, evt_type=evt_type, paddings=paddings)
+     # construct sliding windows
+     train_marginals = utils.sliding_windows(train_marginals, 7, 1)
+     train_marginals = utils.sliding_windows(test_marginals, 7, 1)
+@@ -61,7 +62,7 @@ def main(config):
+ 
+     # compile
+     with tf.device('/gpu:0'):
+-        gan = compile_dcgan(config, nchannels=3)
++        gan = compile_dcgan(config, nchannels=len(datas))
+         # gan.generator.load_weights("/Users/alison/Documents/DPhil/multivariate/hazardGAN/saved-models/deft-sweep-7/generator_weights")
+         # gan.discriminator.load_weights("/Users/alison/Documents/DPhil/multivariate/hazardGAN/saved-models/deft-sweep-7/discriminator_weights")
+         gan.fit(train, epochs=config.nepochs, callbacks=[WandbCallback(), cross_entropy]) #, chi_score
