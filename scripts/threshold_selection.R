@@ -1,3 +1,4 @@
+rm(list=ls())
 library(reticulate)
 library(threshr)
 library(knitr)
@@ -9,7 +10,7 @@ getmode <- function(v) {
 
 np <- import("numpy")
 var <- 'wind_data'
-block_size <- 'monthly'
+block.size <- 'daily'
 
 if(var=='precip_data'){
   min_quantile <- .9  # very skewed because of near-zero observations
@@ -17,13 +18,18 @@ if(var=='precip_data'){
   min_quantile <- .6
 }
 
-if(block_size=='daily'){
+if(block.size=='daily'){
   nexcesses <- 50
-}else if(block_size=='weekly'){
+  npy <- 365 # observations for every day of the year
+}else if(block.size=='weekly'){
   nexcesses <- 30
+  npy <- 52
+}else if(block.size == 'monthly'){
+  nexcesses = 30
+  npy = 12
 }
 
-X <- np$load(paste0("/Users/alison/Documents/DPhil/multivariate/", var, "/", block_size, "/train/images.npy"))
+X <- np$load(paste0("/Users/alison/Documents/DPhil/multivariate/", var, "/", block.size, "/train/images.npy"))
 M <- dim(X)[2]
 N <- dim(X)[3]
 
@@ -36,7 +42,6 @@ for(i in 1:M){
     if(var(x) > 0){
       print(paste0("i: ", i))
       print(paste0("j: ", j))
-      npy <- 365 # observations for every day of the year
       attr(x, 'npy') <- npy
       
       # restrict search so that number of excesses always >= 10
@@ -53,6 +58,19 @@ for(i in 1:M){
       
       best_u <- getmode(summary(var_cv)[, "best u"])
       best_u <- max(x[x <= best_u]) # use an actual observation as threshold, important for interpolating
+      
+      if(FALSE){
+        # for looking at results in dev
+        hist(x)
+        best_u <- 7
+        excesses <- x[x>best_u]
+        excesss.ind <- x[x>best_u]
+        print(paste0(length(excesses), " excesses selected."));print(paste0(summary(var_cv)[, "best u quantile"], "% quantile selected."))
+        par(mfrow=c(1,1));plot(x, type='l');points(which(x>best_u), x[x>best_u], pch=20, col='red')
+        Box.test(excesses)
+      }
+
+      
       print(paste0('Best u: ', best_u))
       u_mat[i, j] <- best_u
       n.excesses[i, j] <- length(x[x > best_u])

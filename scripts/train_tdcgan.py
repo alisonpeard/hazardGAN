@@ -17,7 +17,7 @@ from wandb.keras import WandbCallback
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
-from hazardGAN import ChiScore, CrossEntropy, tDCGAN, utils, fig_utils, compile_dcgan
+from hazardGAN import ChiScore, CrossEntropy, tDCGAN, utils, fig_utils, compile_tdcgan
 
 global rundir
 global evt_type
@@ -28,7 +28,7 @@ plot_kwargs = {'bbox_inches': 'tight', 'dpi': 300}
 cwd = os.getcwd() # scripts directory
 wd = os.path.join(cwd, "..") # hazardGAN directory
 datadir = os.path.join(wd, "..") # keep data folder in parent directory 
-datas = ['wind_data']
+datas = ['wind_data', 'wave_data', 'precip_data']
 imdir = os.path.join(wd, 'figures', 'temp')
 paddings = tf.constant([[0,0], [1,1], [1,1], [0,0]])
 evt_type = "bm"
@@ -63,7 +63,7 @@ def main(config):
 
     # compile
     with tf.device('/gpu:0'):
-        gan = compile_dcgan(config, nchannels=len(datas))
+        gan = compile_tdcgan(config, nchannels=len(datas))
         # gan.generator.load_weights("/Users/alison/Documents/DPhil/multivariate/hazardGAN/saved-models/deft-sweep-7/generator_weights")
         # gan.discriminator.load_weights("/Users/alison/Documents/DPhil/multivariate/hazardGAN/saved-models/deft-sweep-7/discriminator_weights")
         gan.fit(train, epochs=config.nepochs, callbacks=[WandbCallback(), cross_entropy]) #, chi_score

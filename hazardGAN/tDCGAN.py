@@ -35,11 +35,11 @@ def process_adam_from_config(config):
     return kwargs
 
 
-def compile_dcgan(config, loss_fn=cross_entropy, nchannels=2):
+def compile_tdcgan(config, loss_fn=cross_entropy, nchannels=2):
     adam_kwargs = process_adam_from_config(config)
     d_optimizer = Adam(**adam_kwargs)
     g_optimizer = Adam(**adam_kwargs)
-    dcgan = DCGAN(config, nchannels=nchannels)
+    dcgan = tDCGAN(config, nchannels=nchannels)
     dcgan.compile(d_optimizer=d_optimizer, g_optimizer=g_optimizer, loss_fn=loss_fn)
     return dcgan
 
@@ -109,7 +109,7 @@ def define_discriminator(config, nchannels=1, window_size=7):
     return tf.keras.Model(x, [o, logits], name='discriminator')
 
 
-class DCGAN(keras.Model):
+class tDCGAN(keras.Model):
     def __init__(self, config, nchannels=2):
         super().__init__()
         self.discriminator = define_discriminator(config, nchannels)

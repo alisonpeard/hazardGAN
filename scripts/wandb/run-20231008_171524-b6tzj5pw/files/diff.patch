@@ -1,0 +1,30 @@
+diff --git a/.DS_Store b/.DS_Store
+index 5b48d07..bfda23e 100644
+Binary files a/.DS_Store and b/.DS_Store differ
+diff --git a/scripts/.DS_Store b/scripts/.DS_Store
+index bddd000..0143f4b 100644
+Binary files a/scripts/.DS_Store and b/scripts/.DS_Store differ
+diff --git a/scripts/config-defaults.yaml b/scripts/config-defaults.yaml
+index 0a3703c..0cfc6e6 100644
+--- a/scripts/config-defaults.yaml
++++ b/scripts/config-defaults.yaml
+@@ -1,8 +1,8 @@
+ # training settings
+ nepochs:
+-  value: 100 # 1000
++  value: 1000 # 1000
+ train_size:
+-  value: 1000
++  value: 500
+ batch_size:
+   value: 100
+ chi_frequency:
+diff --git a/scripts/wandb/latest-run b/scripts/wandb/latest-run
+index 3a3f795..e4fd958 120000
+--- a/scripts/wandb/latest-run
++++ b/scripts/wandb/latest-run
+@@ -1 +1 @@
+-run-20231008_163649-aq95xpi3
+\ No newline at end of file
++run-20231008_171524-b6tzj5pw
+\ No newline at end of file

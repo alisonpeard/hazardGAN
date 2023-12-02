@@ -1,0 +1,1 @@
+{"format": "keras", "nodes": [{"name": "discriminator", "id": "discriminator", "class_name": "Functional", "output_shape": [[null, 1], [null, 1]], "num_parameters": 532801}, {"name": "generator", "id": "generator", "class_name": "Functional", "output_shape": [null, 7, 20, 24, 3], "num_parameters": 24019971}], "edges": []}

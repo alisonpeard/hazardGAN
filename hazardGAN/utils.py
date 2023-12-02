@@ -16,6 +16,7 @@ def diff(x, d=1):
     """Difference a (time series) array."""
     return x[d:] - x[:-d]
 
+
 def translate_indices(i, dims=(18, 22)):
     indices = np.arange(0, dims[0] * dims[1], 1)
     x = np.argwhere(indices.reshape(dims[0], dims[1]) == i)
@@ -35,16 +36,16 @@ def unpad(tensor, paddings=tf.constant([[0,0], [1,1], [1,1], [0,0]])):
     return tensor[unpaddings]
 
 
-def sliding_windows(x, size, jump=1):
+def sliding_windows(x, size, step=1):
     n, *_ = x.shape
-    window_indices = sliding_window_indices(size, n, jump)
+    window_indices = sliding_window_indices(size, n, step)
     return x[window_indices, ...]
 
 
-def sliding_window_indices(size, n, jump=1):
+def sliding_window_indices(size, n, step=1):
     windows = []
     i = 0
-    for i in range(0, n - size, jump):
+    for i in range(0, n - size, step):
         windows.append(np.arange(i, i + size, 1))
     return np.array(windows)
 
@@ -322,8 +323,9 @@ def get_extremal_correlations(marginals, sample_inds):
 
 
 def get_extremal_coeffs(marginals, sample_inds):
+    assert len(marginals.shape) == 3, f'Requires marginals of rank 3, provided with rank {len(data.shape)} marginals.'
     data = tf.cast(marginals, dtype=tf.float32)
-    n, h, w = tf.shape(data)[:3]
+    n, h, w = tf.shape(data)
     data = tf.reshape(data, [n, h * w])
     data = tf.gather(data, sample_inds, axis=1)
     frechet = inv_frechet(data)
@@ -359,6 +361,7 @@ def raw_extremal_coefficient(frechet_x, frechet_y):
         tf.print("Warning: all zeros in minima array.")
         theta = 2
     return theta
+
 
 def get_extremal_corrs_nd(marginals, sample_inds):
     """Calculate extremal coefficients across D-dimensional uniform data."""
@@ -483,15 +486,17 @@ def load_training_data(datadir, train_size=200, datas=['wind_data', 'wave_data',
 
 
 def load_test_data(datadir, datas=['wind_data', 'wave_data', 'precip_data'],
-                   evt_type='pot', paddings=tf.constant([[0,0], [1,1], [1,1], [0,0]])):
+                   block_size='daily',
+                   evt_type='pot',
+                   paddings=tf.constant([[0,0], [1,1], [1,1], [0,0]])):
     marginals = []
     images = []
     params = []
 
     for data in datas:
-        marginals.append(np.load(os.path.join(datadir, data, 'test', evt_type, 'marginals.npy'))[..., 0])
-        params.append(np.load(os.path.join(datadir, data, 'train', evt_type, 'params.npy'))) # params from training set
-        images.append(np.load(os.path.join(datadir, data, 'test', evt_type, 'images.npy'))[..., 0])
+        marginals.append(np.load(os.path.join(datadir, data, block_size, 'test', evt_type, 'marginals.npy'))[..., 0])
+        params.append(np.load(os.path.join(datadir, data, block_size, 'train', evt_type, 'params.npy'))) # params from training set
+        images.append(np.load(os.path.join(datadir, data, block_size, 'test', evt_type, 'images.npy'))[..., 0])
 
     marginals = np.stack(marginals, axis=-1)
     params = np.stack(params, axis=-1)
